@@ -1,28 +1,41 @@
 {% extends 'base.html' %}
 {% block title %}Tasks for {{ name }} on {{ date }}{% endblock %}
 {% block content %}
-    <h1>Tasks for {{ name }} on {{ date }}</h1>
-    <table style="border-collapse: collapse; width: 100%;">
-        <tr>
-            <th>Task Name</th><th>Status</th><th>Priority</th><th>Action</th>
-        </tr>
-        {% for task in tasks %}
-            <tr>
-                <td>{{ task.task_name }}</td>
-                <td>{{ task.status }}</td>
-                <td>{{ task.priority }}</td>
-                <td>
-                    <form method="post" action="{% url 'tasks_by_date' name=name date=date %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="task_id" value="{{ task.id }}">
-                        <select name="status">
-                            <option value="Active" {% if task.status == 'Active' %}selected{% endif %}>Active</option>
-                            <option value="Completed" {% if task.status == 'Completed' %}selected{% endif %}>Completed</option>
-                        </select>
-                        <input type="submit" value="Update">
-                    </form>
-                </td>
-            </tr>
-        {% endfor %}
-    </table>
+    <h1 class="text-3xl font-bold text-gray-800 mb-6">Tasks for {{ name }} on {{ date }}</h1>
+    <div class="overflow-x-auto">
+        <table class="w-full bg-white shadow-md rounded-lg">
+            <thead>
+                <tr class="bg-gray-100">
+                    <th class="p-3 text-sm font-semibold text-gray-700 text-left">Task Name</th>
+                    <th class="p-3 text-sm font-semibold text-gray-700 text-left">Start Date</th>
+                    <th class="p-3 text-sm font-semibold text-gray-700 text-left">End Date</th>
+                    <th class="p-3 text-sm font-semibold text-gray-700 text-left">Status</th>
+                    <th class="p-3 text-sm font-semibold text-gray-700 text-left">Priority</th>
+                    <th class="p-3 text-sm font-semibold text-gray-700 text-left">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for task in tasks %}
+                    <tr class="border-b border-gray-200 hover:bg-gray-50 transition">
+                        <td class="p-3 text-sm text-gray-700">{{ task.task_name }}</td>
+                        <td class="p-3 text-sm text-gray-700">{{ task.start_date|date:"Y-m-d" }}</td>
+                        <td class="p-3 text-sm text-gray-700">{{ task.end_date|date:"Y-m-d" }}</td>
+                        <td class="p-3 text-sm text-gray-700">{{ task.status }}</td>
+                        <td class="p-3 text-sm text-gray-700">{{ task.priority }}</td>
+                        <td class="p-3">
+                            <form method="post" action="{% url 'tasks_by_date' name=name date=date %}" class="flex gap-2">
+                                {% csrf_token %}
+                                <input type="hidden" name="task_id" value="{{ task.id }}">
+                                <select name="status" class="border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-1">
+                                    <option value="Active" {% if task.status == 'Active' %}selected{% endif %}>Active</option>
+                                    <option value="Completed" {% if task.status == 'Completed' %}selected{% endif %}>Completed</option>
+                                </select>
+                                <button type="submit" class="bg-indigo-600 text-white px-3 py-1 rounded-md hover:bg-indigo-700 transition text-sm">Update</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 {% endblock %}

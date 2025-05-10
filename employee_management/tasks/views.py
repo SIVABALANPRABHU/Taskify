@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 API_KEY = "AIzaSyAT0_w_CZbwc81tVZxV7ETX8yxPGFE6IDo"  # Your Google Sheets API key
 SHEET_ID = "1nmEyQp0Li6qScZ_kUeeZp-c4jFjx6M2y_J9PhJgyp_I"  # Your sheet ID
 service = build("sheets", "v4", developerKey=API_KEY)
-RANGE_NAME = "Sheet1!A1:E"  # Adjust if your sheet tab name differs
+RANGE_NAME = "Sheet1!A1:F"  # Updated for new columns
 
 def sync_tasks():
     try:
@@ -25,19 +25,25 @@ def sync_tasks():
         if not values or len(values) < 2:  # Check for empty sheet or header-only
             logger.warning("No data found in Google Sheet")
             return
-        headers = values[0]  # ['Assignee', 'Date', 'Task Name', 'Status', 'Priority']
+        headers = values[0]  # ['Assignee', 'Start Date', 'End Date', 'Task Name', 'Status', 'Priority']
         data = values[1:]    # Data rows
         Task.objects.all().delete()
         for row in data:
-            if len(row) >= 5:  # Ensure row has all columns
+            if len(row) >= 6:  # Ensure row has all columns
                 try:
-                    Task.objects.create(
-                        assignee=row[0],
-                        date=datetime.strptime(row[1], '%Y-%m-%d').date(),
-                        task_name=row[2],
-                        status=row[3],
-                        priority=row[4]
-                    )
+                    start_date = datetime.strptime(row[1], '%Y-%m-%d').date()
+                    end_date = datetime.strptime(row[2], '%Y-%m-%d').date()
+                    if start_date <= end_date:  # Validate dates
+                        Task.objects.create(
+                            assignee=row[0],
+                            start_date=start_date,
+                            end_date=end_date,
+                            task_name=row[3],
+                            status=row[4],
+                            priority=row[5]
+                        )
+                    else:
+                        logger.warning(f"Invalid date range in row {row}: start_date > end_date")
                 except ValueError as e:
                     logger.error(f"Invalid date format in row {row}: {str(e)}")
     except Exception as e:
@@ -57,7 +63,7 @@ def assignee_profile(request, name):
     end_date_str = request.GET.get('end_date')
     
     # Default to current month if no dates provided
-    current_date = datetime.now().date()  # Use .date() for consistency
+    current_date = datetime.now().date()
     year = current_date.year
     month = current_date.month
     if start_date_str and end_date_str:
@@ -73,8 +79,12 @@ def assignee_profile(request, name):
         start_date = datetime(year, month, 1).date()
         end_date = (datetime(year, month, 1) + timedelta(days=31)).replace(day=1).date() - timedelta(days=1)
     
-    # Filter tasks by assignee and date range
-    tasks = Task.objects.filter(assignee=name, date__gte=start_date, date__lte=end_date)
+    # Filter tasks where date range overlaps with calendar range
+    tasks = Task.objects.filter(
+        assignee=name,
+        start_date__lte=end_date,
+        end_date__gte=start_date
+    )
     
     # Generate custom calendar for date range
     calendar_data = []
@@ -91,13 +101,16 @@ def assignee_profile(request, name):
         if current_date > end_date:
             break
     
-    # Organize tasks by date
+    # Organize tasks by date (all dates in their start-to-end range)
     tasks_by_date = {}
     for task in tasks:
-        date_str = task.date.strftime('%Y-%m-%d')
-        if date_str not in tasks_by_date:
-            tasks_by_date[date_str] = []
-        tasks_by_date[date_str].append(task)
+        current_task_date = max(task.start_date, start_date)
+        while current_task_date <= min(task.end_date, end_date):
+            date_str = current_task_date.strftime('%Y-%m-%d')
+            if date_str not in tasks_by_date:
+                tasks_by_date[date_str] = []
+            tasks_by_date[date_str].append(task)
+            current_task_date += timedelta(days=1)
     
     # Compute previous and next date range for navigation
     range_days = (end_date - start_date).days + 1
@@ -122,14 +135,18 @@ def assignee_profile(request, name):
 
 def tasks_by_date(request, name, date):
     sync_tasks()
-    tasks = Task.objects.filter(assignee=name, date=date)
+    date_obj = datetime.strptime(date, '%Y-%m-%d').date()
+    tasks = Task.objects.filter(
+        assignee=name,
+        start_date__lte=date_obj,
+        end_date__gte=date_obj
+    )
     if request.method == 'POST':
         task_id = request.POST['task_id']
         new_status = request.POST['status']
         task = Task.objects.get(id=task_id)
         task.status = new_status
         task.save()
-        # Note: Cannot update Google Sheet (read-only API key)
         return redirect('tasks_by_date', name=name, date=date)
     return render(request, 'tasks.html', {'name': name, 'date': date, 'tasks': tasks})
 

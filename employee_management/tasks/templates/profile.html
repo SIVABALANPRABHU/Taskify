@@ -1,53 +1,86 @@
 {% extends 'base.html' %}
 {% block title %}{{ name }}'s Profile{% endblock %}
 {% block content %}
-    <h1>{{ name }}'s Calendar</h1>
-    <h3>{{ start_date|date:"Y-m-d" }} to {{ end_date|date:"Y-m-d" }}</h3>
+    <!-- Include Tailwind CSS via CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 
-    <!-- Start/End Date Filter Form -->
-    <form method="GET" action="{% url 'assignee_profile' name=name %}">
-        <label for="start_date">Start Date (YYYY-MM-DD):</label>
-        <input type="text" id="start_date" name="start_date" value="{{ start_date|date:'Y-m-d' }}" placeholder="2025-05-01">
-        <label for="end_date">End Date (YYYY-MM-DD):</label>
-        <input type="text" id="end_date" name="end_date" value="{{ end_date|date:'Y-m-d' }}" placeholder="2025-05-31">
-        <button type="submit">Filter</button>
-    </form>
+    <div class="container mx-auto p-4 sm:p-6 max-w-4xl">
+        <h1 class="text-3xl font-bold text-gray-800 mb-4">{{ name }}'s Calendar</h1>
+        <h3 class="text-lg text-gray-600 mb-6">{{ start_date|date:"Y-m-d" }} to {{ end_date|date:"Y-m-d" }}</h3>
 
-    <!-- Navigation for previous/next date range -->
-    <div>
-        <a href="{% url 'assignee_profile' name=name %}?start_date={{ prev_start_date|date:'Y-m-d' }}&end_date={{ prev_end_date|date:'Y-m-d' }}">Previous Period</a> |
-        <a href="{% url 'assignee_profile' name=name %}?start_date={{ next_start_date|date:'Y-m-d' }}&end_date={{ next_end_date|date:'Y-m-d' }}">Next Period</a>
-    </div>
+        <!-- Start/End Date Filter Form -->
+        <form method="GET" action="{% url 'assignee_profile' name=name %}" class="mb-6 flex flex-col sm:flex-row gap-4">
+            <div class="flex-1">
+                <label for="start_date" class="block text-sm font-medium text-gray-700">Start Date (YYYY-MM-DD):</label>
+                <input type="text" id="start_date" name="start_date" value="{{ start_date|date:'Y-m-d' }}" placeholder="2025-05-01" 
+                       class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+            </div>
+            <div class="flex-1">
+                <label for="end_date" class="block text-sm font-medium text-gray-700">End Date (YYYY-MM-DD):</label>
+                <input type="text" id="end_date" name="end_date" value="{{ end_date|date:'Y-m-d' }}" placeholder="2025-05-31" 
+                       class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+            </div>
+            <div class="self-end">
+                <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition">Filter</button>
+            </div>
+        </form>
 
-    <table style="border-collapse: collapse;">
-        <tr>
-            <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
-        </tr>
-        {% for week in calendar %}
-            <tr>
-                {% for day in week %}
-                    {% if day %}
-                        {% with date_str=day|date:"Y-m-d" %}
-                            <td style="border: 1px solid #ddd; padding: 10px; text-align: center; vertical-align: top; {% if date_str in tasks_by_date %}background-color: #e0f7fa;{% endif %}">
-                                {% if date_str in tasks_by_date %}
-                                    <a href="{% url 'tasks_by_date' name=name date=date_str %}">{{ day.day }}</a>
-                                    <br>
-                                    <small>({{ tasks_by_date.date_str|length }} task{{ tasks_by_date.date_str|length|pluralize }})</small>
-                                    <ul style="list-style: none; padding: 0; font-size: 0.8em;">
-                                        {% for task in tasks_by_date.date_str %}
-                                            <li>{{ task.task_name }} (ID: {{ task.id }}, {{ task.status }}, {{ task.priority }})</li>
-                                        {% endfor %}
-                                    </ul>
+        <!-- Navigation for previous/next date range -->
+        <div class="mb-6 flex justify-between text-sm">
+            <a href="{% url 'assignee_profile' name=name %}?start_date={{ prev_start_date|date:'Y-m-d' }}&end_date={{ prev_end_date|date:'Y-m-d' }}" 
+               class="text-indigo-600 hover:text-indigo-800 font-medium">Previous Period</a>
+            <a href="{% url 'assignee_profile' name=name %}?start_date={{ next_start_date|date:'Y-m-d' }}&end_date={{ next_end_date|date:'Y-m-d' }}" 
+               class="text-indigo-600 hover:text-indigo-800 font-medium">Next Period</a>
+        </div>
+
+        <!-- Calendar Table -->
+        <div class="overflow-x-auto">
+            <table class="w-full border-collapse bg-white shadow-md rounded-lg">
+                <thead>
+                    <tr class="bg-gray-100">
+                        <th class="p-3 text-sm font-semibold text-gray-700">Mon</th>
+                        <th class="p-3 text-sm font-semibold text-gray-700">Tue</th>
+                        <th class="p-3 text-sm font-semibold text-gray-700">Wed</th>
+                        <th class="p-3 text-sm font-semibold text-gray-700">Thu</th>
+                        <th class="p-3 text-sm font-semibold text-gray-700">Fri</th>
+                        <th class="p-3 text-sm font-semibold text-gray-700">Sat</th>
+                        <th class="p-3 text-sm font-semibold text-gray-700">Sun</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for week in calendar %}
+                        <tr>
+                            {% for day in week %}
+                                {% if day %}
+                                    {% with date_str=day|date:"Y-m-d" %}
+                                        <td class="border border-gray-200 p-3 text-center align-top {% if date_str in tasks_by_date %}bg-teal-100{% else %}bg-white{% endif %} hover:bg-gray-50 transition">
+                                            {% if date_str in tasks_by_date %}
+                                                <a href="{% url 'tasks_by_date' name=name date=date_str %}" class="text-indigo-600 font-bold hover:underline">{{ day.day }}</a>
+                                                <div class="text-xs text-gray-500 mt-1">({{ tasks_by_date.date_str|length }} task{{ tasks_by_date.date_str|length|pluralize }})</div>
+                                                <ul class="mt-2 text-xs text-gray-700 list-none space-y-1">
+                                                    {% for task in tasks_by_date.date_str %}
+                                                        <li class="border-l-2 border-indigo-500 pl-2">
+                                                            <strong>{{ task.task_name }}</strong> (ID: {{ task.id }})<br>
+                                                            Start: {{ task.start_date|date:"Y-m-d" }}<br>
+                                                            End: {{ task.end_date|date:"Y-m-d" }}<br>
+                                                            Status: {{ task.status }}<br>
+                                                            Priority: {{ task.priority }}
+                                                        </li>
+                                                    {% endfor %}
+                                                </ul>
+                                            {% else %}
+                                                <span class="text-gray-600">{{ day.day }}</span>
+                                            {% endif %}
+                                        </td>
+                                    {% endwith %}
                                 {% else %}
-                                    {{ day.day }}
+                                    <td class="border border-gray-200 p-3 text-center bg-gray-50"></td>
                                 {% endif %}
-                            </td>
-                        {% endwith %}
-                    {% else %}
-                        <td style="border: 1px solid #ddd; padding: 10px; text-align: center;"></td>
-                    {% endif %}
-                {% endfor %}
-            </tr>
-        {% endfor %}
-    </table>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 {% endblock %}
