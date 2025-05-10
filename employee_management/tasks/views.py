@@ -7,6 +7,8 @@ import calendar
 import io
 from .models import Task
 import logging
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.db.models import Q
 
 # Set up logging
 logging.basicConfig(level=logging.ERROR)
@@ -135,8 +137,79 @@ def assignee_profile(request, name):
 
 def all_tasks(request, name):
     sync_tasks()
+    # Base queryset
     tasks = Task.objects.filter(assignee=name)
-    return render(request, 'all_tasks.html', {'name': name, 'tasks': tasks})
+    
+    # Get filter and search parameters
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
+    status = request.GET.get('status')
+    priority = request.GET.get('priority')
+    search_query = request.GET.get('search')
+    sort_by = request.GET.get('sort_by', 'id')  # Default sort by id
+    sort_order = request.GET.get('sort_order', 'asc')  # Default ascending
+    
+    # Date range filter
+    if start_date_str and end_date_str:
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            if start_date <= end_date:
+                tasks = tasks.filter(start_date__lte=end_date, end_date__gte=start_date)
+            else:
+                start_date, end_date = end_date, start_date
+                tasks = tasks.filter(start_date__lte=end_date, end_date__gte=start_date)
+        except ValueError:
+            start_date_str, end_date_str = None, None
+    
+    # Status filter
+    if status and status != 'all':
+        tasks = tasks.filter(status=status)
+    
+    # Priority filter
+    if priority and priority != 'all':
+        tasks = tasks.filter(priority=priority)
+    
+    # Search filter
+    if search_query:
+        tasks = tasks.filter(task_name__icontains=search_query)
+    
+    # Sorting
+    if sort_by in ['task_name', 'id', 'start_date', 'end_date', 'status', 'priority']:
+        if sort_order == 'desc':
+            tasks = tasks.order_by(f'-{sort_by}')
+        else:
+            tasks = tasks.order_by(sort_by)
+    else:
+        tasks = tasks.order_by('id')  # Default sort
+    
+    # Pagination
+    paginator = Paginator(tasks, 10)  # 10 tasks per page
+    page = request.GET.get('page')
+    try:
+        tasks_paginated = paginator.page(page)
+    except PageNotAnInteger:
+        tasks_paginated = paginator.page(1)
+    except EmptyPage:
+        tasks_paginated = paginator.page(paginator.num_pages)
+    
+    # Get distinct status and priority values for filter dropdowns
+    status_choices = Task.objects.filter(assignee=name).values_list('status', flat=True).distinct()
+    priority_choices = Task.objects.filter(assignee=name).values_list('priority', flat=True).distinct()
+    
+    return render(request, 'all_tasks.html', {
+        'name': name,
+        'tasks': tasks_paginated,
+        'status_choices': status_choices,
+        'priority_choices': priority_choices,
+        'start_date': start_date_str,
+        'end_date': end_date_str,
+        'status': status or 'all',
+        'priority': priority or 'all',
+        'search_query': search_query or '',
+        'sort_by': sort_by,
+        'sort_order': sort_order,
+    })
 
 def tasks_by_date(request, name, date):
     sync_tasks()

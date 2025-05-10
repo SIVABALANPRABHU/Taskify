@@ -3,23 +3,102 @@
 {% block content %}
     <div class="container mx-auto p-4 sm:p-6 max-w-4xl">
         <h1 class="text-3xl font-bold text-gray-800 mb-6">All Tasks for {{ name }}</h1>
+
+        <!-- Filter and Search Form -->
+        <form method="GET" action="{% url 'all_tasks' name=name %}" class="mb-6 flex flex-col sm:flex-row gap-4">
+            <!-- Date Range -->
+            <div class="flex-1">
+                <label for="start_date" class="block text-sm font-medium text-gray-700">Start Date (YYYY-MM-DD):</label>
+                <input type="text" id="start_date" name="start_date" value="{{ start_date|default:'' }}" placeholder="2025-05-01" 
+                       class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+            </div>
+            <div class="flex-1">
+                <label for="end_date" class="block text-sm font-medium text-gray-700">End Date (YYYY-MM-DD):</label>
+                <input type="text" id="end_date" name="end_date" value="{{ end_date|default:'' }}" placeholder="2025-05-31" 
+                       class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+            </div>
+            <!-- Status -->
+            <div class="flex-1">
+                <label for="status" class="block text-sm font-medium text-gray-700">Status:</label>
+                <select id="status" name="status" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+                    <option value="all" {% if status == 'all' %}selected{% endif %}>All</option>
+                    {% for status_choice in status_choices %}
+                        <option value="{{ status_choice }}" {% if status == status_choice %}selected{% endif %}>{{ status_choice }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <!-- Priority -->
+            <div class="flex-1">
+                <label for="priority" class="block text-sm font-medium text-gray-700">Priority:</label>
+                <select id="priority" name="priority" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+                    <option value="all" {% if priority == 'all' %}selected{% endif %}>All</option>
+                    {% for priority_choice in priority_choices %}
+                        <option value="{{ priority_choice }}" {% if priority == priority_choice %}selected{% endif %}>{{ priority_choice }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+        <!-- Search Form -->
+        <form method="GET" action="{% url 'all_tasks' name=name %}" class="mb-6 flex flex-col sm:flex-row gap-4">
+            <!-- Preserve other filters in search form -->
+            <input type="hidden" name="start_date" value="{{ start_date|default:'' }}">
+            <input type="hidden" name="end_date" value="{{ end_date|default:'' }}">
+            <input type="hidden" name="status" value="{{ status|default:'all' }}">
+            <input type="hidden" name="priority" value="{{ priority|default:'all' }}">
+            <input type="hidden" name="sort_by" value="{{ sort_by|default:'id' }}">
+            <input type="hidden" name="sort_order" value="{{ sort_order|default:'asc' }}">
+            <div class="flex-1">
+                <label for="search" class="block text-sm font-medium text-gray-700">Search Task Name:</label>
+                <input type="text" id="search" name="search" value="{{ search_query|default:'' }}" placeholder="Enter task name..." 
+                       class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
+            </div>
+            <div class="self-end flex gap-2">
+                <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition">Search</button>
+                <a href="{% url 'all_tasks' name=name %}" class="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 transition">Clear Filters</a>
+            </div>
+        </form>
+
+        <!-- Tasks Table -->
         <div class="overflow-x-auto">
             <table class="w-full bg-white shadow-md rounded-lg">
                 <thead>
                     <tr class="bg-gray-100">
-                        <th class="p-3 text-sm font-semibold text-gray-700 text-left">Task Name</th>
-                        <th class="p-3 text-sm font-semibold text-gray-700 text-left">ID</th>
-                        <th class="p-3 text-sm font-semibold text-gray-700 text-left">Start Date</th>
-                        <th class="p-3 text-sm font-semibold text-gray-700 text-left">End Date</th>
-                        <th class="p-3 text-sm font-semibold text-gray-700 text-left">Status</th>
-                        <th class="p-3 text-sm font-semibold text-gray-700 text-left">Priority</th>
+                        <th class="p-3 text-sm font-semibold text-gray-700 text-left">
+                            <a href="{% url 'all_tasks' name=name %}?sort_by=task_name&sort_order={% if sort_by == 'task_name' and sort_order == 'asc' %}desc{% else %}asc{% endif %}&start_date={{ start_date|default:'' }}&end_date={{ end_date|default:'' }}&status={{ status|default:'all' }}&priority={{ priority|default:'all' }}&search={{ search_query|default:'' }}" 
+                               class="text-gray-700 hover:text-indigo-600">
+                                Task Name {% if sort_by == 'task_name' %}{% if sort_order == 'asc' %}↑{% else %}↓{% endif %}{% endif %}
+                            </a>
+                        </th>
+                        <th class="p-3 text-sm font-semibold text-gray-700 text-left">
+                            <a href="{% url 'all_tasks' name=name %}?sort_by=start_date&sort_order={% if sort_by == 'start_date' and sort_order == 'asc' %}desc{% else %}asc{% endif %}&start_date={{ start_date|default:'' }}&end_date={{ end_date|default:'' }}&status={{ status|default:'all' }}&priority={{ priority|default:'all' }}&search={{ search_query|default:'' }}" 
+                               class="text-gray-700 hover:text-indigo-600">
+                                Start Date {% if sort_by == 'start_date' %}{% if sort_order == 'asc' %}↑{% else %}↓{% endif %}{% endif %}
+                            </a>
+                        </th>
+                        <th class="p-3 text-sm font-semibold text-gray-700 text-left">
+                            <a href="{% url 'all_tasks' name=name %}?sort_by=end_date&sort_order={% if sort_by == 'end_date' and sort_order == 'asc' %}desc{% else %}asc{% endif %}&start_date={{ start_date|default:'' }}&end_date={{ end_date|default:'' }}&status={{ status|default:'all' }}&priority={{ priority|default:'all' }}&search={{ search_query|default:'' }}" 
+                               class="text-gray-700 hover:text-indigo-600">
+                                End Date {% if sort_by == 'end_date' %}{% if sort_order == 'asc' %}↑{% else %}↓{% endif %}{% endif %}
+                            </a>
+                        </th>
+                        <th class="p-3 text-sm font-semibold text-gray-700 text-left">
+                            <a href="{% url 'all_tasks' name=name %}?sort_by=status&sort_order={% if sort_by == 'status' and sort_order == 'asc' %}desc{% else %}asc{% endif %}&start_date={{ start_date|default:'' }}&end_date={{ end_date|default:'' }}&status={{ status|default:'all' }}&priority={{ priority|default:'all' }}&search={{ search_query|default:'' }}" 
+                               class="text-gray-700 hover:text-indigo-600">
+                                Status {% if sort_by == 'status' %}{% if sort_order == 'asc' %}↑{% else %}↓{% endif %}{% endif %}
+                            </a>
+                        </th>
+                        <th class="p-3 text-sm font-semibold text-gray-700 text-left">
+                            <a href="{% url 'all_tasks' name=name %}?sort_by=priority&sort_order={% if sort_by == 'priority' and sort_order == 'asc' %}desc{% else %}asc{% endif %}&start_date={{ start_date|default:'' }}&end_date={{ end_date|default:'' }}&status={{ status|default:'all' }}&priority={{ priority|default:'all' }}&search={{ search_query|default:'' }}" 
+                               class="text-gray-700 hover:text-indigo-600">
+                                Priority {% if sort_by == 'priority' %}{% if sort_order == 'asc' %}↑{% else %}↓{% endif %}{% endif %}
+                            </a>
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for task in tasks %}
                         <tr class="border-b border-gray-200 hover:bg-gray-50 transition">
                             <td class="p-3 text-sm text-gray-700">{{ task.task_name }}</td>
-                            <td class="p-3 text-sm text-gray-700">{{ task.id }}</td>
                             <td class="p-3 text-sm text-gray-700">{{ task.start_date|date:"Y-m-d" }}</td>
                             <td class="p-3 text-sm text-gray-700">{{ task.end_date|date:"Y-m-d" }}</td>
                             <td class="p-3 text-sm text-gray-700">{{ task.status }}</td>
@@ -34,6 +113,29 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Pagination -->
+        {% if tasks.has_other_pages %}
+            <div class="mt-4 flex justify-between items-center">
+                <div>
+                    {% if tasks.has_previous %}
+                        <a href="{% url 'all_tasks' name=name %}?page={{ tasks.previous_page_number }}&start_date={{ start_date|default:'' }}&end_date={{ end_date|default:'' }}&status={{ status|default:'all' }}&priority={{ priority|default:'all' }}&search={{ search_query|default:'' }}&sort_by={{ sort_by|default:'id' }}&sort_order={{ sort_order|default:'asc' }}" 
+                           class="text-indigo-600 hover:text-indigo-800 font-medium">Previous</a>
+                    {% endif %}
+                </div>
+                <div class="text-sm text-gray-700">
+                    Page {{ tasks.number }} of {{ tasks.paginator.num_pages }}
+                </div>
+                <div>
+                    {% if tasks.has_next %}
+                        <a href="{% url 'all_tasks' name=name %}?page={{ tasks.next_page_number }}&start_date={{ start_date|default:'' }}&end_date={{ end_date|default:'' }}&status={{ status|default:'all' }}&priority={{ priority|default:'all' }}&search={{ search_query|default:'' }}&sort_by={{ sort_by|default:'id' }}&sort_order={{ sort_order|default:'asc' }}" 
+                           class="text-indigo-600 hover:text-indigo-800 font-medium">Next</a>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Back to Calendar -->
         <div class="mt-4">
             <a href="{% url 'assignee_profile' name=name %}" class="text-indigo-600 hover:text-indigo-800 font-medium">Back to Calendar</a>
         </div>
