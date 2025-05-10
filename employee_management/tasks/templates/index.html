@@ -1,13 +1,71 @@
 {% extends 'base.html' %}
-{% block title %}Employee Management{% endblock %}
+{% block title %}Taskify - Employee Management{% endblock %}
 {% block content %}
-    <h1 class="text-3xl font-bold text-gray-800 mb-6">Assignees</h1>
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        {% for assignee in assignees %}
-            <a href="{% url 'assignee_profile' name=assignee.assignee %}" 
-               class="block bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition text-center text-indigo-600 font-medium hover:text-indigo-800">
-                {{ assignee.assignee }}
-            </a>
-        {% endfor %}
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8 max-w-7xl">
+        <!-- Hero Header -->
+        <div class="text-center mb-10">
+            <h1 class="text-4xl sm:text-5xl font-extrabold text-gray-900 mb-2">Taskify</h1>
+            <p class="text-lg sm:text-xl text-gray-600">Manage tasks and track employee workloads with ease</p>
+        </div>
+
+        <!-- Mode Toggle Button -->
+        <div class="flex justify-center mb-8">
+            {% if mode == 'date' %}
+                <a href="{% url 'index' %}?mode=assignee" 
+                   class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-600 to-indigo-800 text-white font-semibold rounded-full shadow-lg hover:from-indigo-700 hover:to-indigo-900 transform hover:scale-105 transition-all duration-300">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v2h5m-2-2a3 3 0 005.356 1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    </svg>
+                    <h4 class="text-4xl sm:text-5xl font-extrabold text-gray-900 mb-2">Assignee-Based List</h4>
+                </a>
+            {% else %}
+                <a href="{% url 'date_calendar' %}?mode=date" 
+                   class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-teal-500 to-teal-700 text-white font-semibold rounded-full shadow-lg hover:from-teal-600 hover:to-teal-800 transform hover:scale-105 transition-all duration-300">
+                    <svg class="w-5 h-5 mr-2" fill="green" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    <p class="text-gray-800">Date-Based Task</p>
+                </a>
+            {% endif %}
+        </div>
+
+        {% if mode == 'date' %}
+            <!-- Date-Based Calendar -->
+            {% include 'date_calendar.html' %}
+        {% else %}
+            <!-- Assignee-Based List -->
+            <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-6 text-center">Team Members</h2>
+            {% if assignees %}
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {% for assignee in assignees %}
+                        <a href="{% url 'assignee_profile' name=assignee.assignee %}" 
+                           class="block bg-white p-6 rounded-xl shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
+                            <div class="flex items-center space-x-4">
+                                <!-- Avatar -->
+                                <div class="flex-shrink-0">
+                                    <div class="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xl">
+                                        {{ assignee.assignee|slice:":1"|upper }}
+                                    </div>
+                                </div>
+                                <!-- Name -->
+                                <div>
+                                    <h3 class="text-lg font-semibold text-gray-900">{{ assignee.assignee }}</h3>
+                                    <p class="text-sm text-gray-500">View tasks & calendar</p>
+                                </div>
+                            </div>
+                        </a>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <!-- Empty State -->
+                <div class="text-center py-12 bg-white rounded-xl shadow-md">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v2h5m-2-2a3 3 0 005.356 1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    </svg>
+                    <h3 class="mt-2 text-lg font-medium text-gray-900">No assignees found</h3>
+                    <p class="mt-1 text-sm text-gray-500">Add tasks to the Google Sheet to populate the team list.</p>
+                </div>
+            {% endif %}
+        {% endif %}
     </div>
 {% endblock %}

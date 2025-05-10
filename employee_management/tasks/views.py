@@ -57,8 +57,87 @@ def sync_tasks():
 
 def index(request):
     sync_tasks()
+    mode = request.GET.get('mode', 'assignee')  # Default to assignee mode
     assignees = Task.objects.values('assignee').distinct()
-    return render(request, 'index.html', {'assignees': assignees})
+    return render(request, 'index.html', {'assignees': assignees, 'mode': mode})
+
+def date_calendar(request):
+    sync_tasks()
+    # Get start_date and end_date from query params
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
+    
+    # Default to current month
+    current_date = datetime.now().date()
+    year = current_date.year
+    month = current_date.month
+    if start_date_str and end_date_str:
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            if start_date > end_date:
+                start_date, end_date = end_date, start_date
+        except ValueError:
+            start_date = datetime(year, month, 1).date()
+            end_date = (datetime(year, month, 1) + timedelta(days=31)).replace(day=1).date() - timedelta(days=1)
+    else:
+        start_date = datetime(year, month, 1).date()
+        end_date = (datetime(year, month, 1) + timedelta(days=31)).replace(day=1).date() - timedelta(days=1)
+    
+    # Filter tasks
+    tasks = Task.objects.filter(
+        start_date__lte=end_date,
+        end_date__gte=start_date
+    )
+    
+    # Organize assignees by date
+    assignees_by_date = {}
+    for task in tasks:
+        current_task_date = max(task.start_date, start_date)
+        while current_task_date <= min(task.end_date, end_date):
+            date_str = current_task_date.strftime('%Y-%m-%d')
+            if date_str not in assignees_by_date:
+                assignees_by_date[date_str] = set()
+            assignees_by_date[date_str].add(task.assignee)
+            current_task_date += timedelta(days=1)
+    
+    # Convert sets to sorted lists
+    assignees_by_date = {date_str: sorted(list(assignees)) for date_str, assignees in assignees_by_date.items()}
+    
+    # Generate calendar
+    calendar_data = []
+    current_date = start_date
+    while current_date <= end_date:
+        week = [None] * 7
+        week_start = current_date - timedelta(days=current_date.weekday())
+        for i in range(7):
+            day_date = week_start + timedelta(days=i)
+            if start_date <= day_date <= end_date:
+                week[i] = day_date
+        calendar_data.append(week)
+        current_date = week_start + timedelta(days=7)
+        if current_date > end_date:
+            break
+    
+    # Navigation
+    range_days = (end_date - start_date).days + 1
+    prev_start_date = start_date - timedelta(days=range_days)
+    prev_end_date = start_date - timedelta(days=1)
+    next_start_date = end_date + timedelta(days=1)
+    next_end_date = end_date + timedelta(days=range_days)
+    
+    return render(request, 'date_calendar.html', {
+        'year': year,
+        'month': month,
+        'calendar': calendar_data,
+        'assignees_by_date': assignees_by_date,
+        'start_date': start_date,
+        'end_date': end_date,
+        'prev_start_date': prev_start_date,
+        'prev_end_date': prev_end_date,
+        'next_start_date': next_start_date,
+        'next_end_date': next_end_date
+    })
 
 def assignee_profile(request, name):
     sync_tasks()
@@ -269,7 +348,7 @@ def all_tasks(request, name):
         'start_date': start_date_str,
         'end_date': end_date_str,
         'status': status or 'all',
-        'priority': priority or 'all',
+        'priority': status or 'all',
         'search_query': search_query or '',
         'sort_by': sort_by,
         'sort_order': sort_order,

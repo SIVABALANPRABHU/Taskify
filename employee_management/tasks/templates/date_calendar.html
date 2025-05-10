@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+{% block title %}Date-Based Task Calendar{% endblock %}
+{% block content %}
+    <div class="container mx-auto p-4 sm:p-6 max-w-7xl">
+        <div class="flex flex-col lg:flex-row gap-6">
+            <!-- Main Calendar Area -->
+            <div class="flex-1">
+                <h1 class="text-3xl font-bold text-gray-800 mb-4">Date-Based Task Calendar</h1>
+                <h3 class="text-lg text-gray-600 mb-6">{{ start_date|date:"Y-m-d" }} to {{ end_date|date:"Y-m-d" }}</h3>
+
+                <!-- Start/End Date Filter Form -->
+                <form method="GET" action="{% url 'date_calendar' %}" class="mb-6 flex flex-col sm:flex-row gap-4">
+                    <div class="flex-1">
+                        <label for="start_date" class="block text-sm font-medium text-gray-700">Start Date (YYYY-MM-DD):</label>
+                        <input type="date" id="start_date" name="start_date" value="{{ start_date|date:'Y-m-d' }}" placeholder="2025-05-01" 
+                               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2 appearance-none">
+                    </div>
+                    <div class="flex-1">
+                        <label for="end_date" class="block text-sm font-medium text-gray-700">End Date (YYYY-MM-DD):</label>
+                        <input type="date" id="end_date" name="end_date" value="{{ end_date|date:'Y-m-d' }}" placeholder="2025-05-31" 
+                               class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2 appearance-none">
+                    </div>
+                    <div class="self-end">
+                        <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition">Filter</button>
+                    </div>
+                </form>
+
+                <!-- Navigation for previous/next date range -->
+                <div class="mb-6 flex justify-between text-sm">
+                    <a href="{% url 'date_calendar' %}?start_date={{ prev_start_date|date:'Y-m-d' }}&end_date={{ prev_end_date|date:'Y-m-d' }}&mode=date" 
+                       class="text-indigo-600 hover:text-indigo-800 font-medium">Previous Period</a>
+                    <a href="{% url 'date_calendar' %}?start_date={{ next_start_date|date:'Y-m-d' }}&end_date={{ next_end_date|date:'Y-m-d' }}&mode=date" 
+                       class="text-indigo-600 hover:text-indigo-800 font-medium">Next Period</a>
+                </div>
+
+                <!-- Calendar Table -->
+                <div class="overflow-x-auto mb-8">
+                    <table class="w-full border-collapse bg-white shadow-md rounded-lg">
+                        <thead>
+                            <tr class="bg-gray-100">
+                                <th class="p-3 text-sm font-semibold text-gray-700">Mon</th>
+                                <th class="p-3 text-sm font-semibold text-gray-700">Tue</th>
+                                <th class="p-3 text-sm font-semibold text-gray-700">Wed</th>
+                                <th class="p-3 text-sm font-semibold text-gray-700">Thu</th>
+                                <th class="p-3 text-sm font-semibold text-gray-700">Fri</th>
+                                <th class="p-3 text-sm font-semibold text-gray-700">Sat</th>
+                                <th class="p-3 text-sm font-semibold text-gray-700">Sun</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for week in calendar %}
+                                <tr>
+                                    {% for day in week %}
+                                        {% if day %}
+                                            {% with date_str=day|date:"Y-m-d" %}
+                                                <td class="border border-gray-200 p-3 text-center align-top {% if date_str in assignees_by_date %}bg-teal-100 cursor-pointer{% else %}bg-white{% endif %} hover:bg-gray-50 transition" 
+                                                    {% if date_str in assignees_by_date %}data-date="{{ date_str }}" onclick="toggleSidebar('{{ date_str }}')"{% endif %}>
+                                                    <span class="text-gray-600 font-medium">{{ day.day }}</span>
+                                                    {% if date_str in assignees_by_date %}
+                                                        <div class="text-xs text-gray-500 mt-1">
+                                                            {{ assignees_by_date|lookup:date_str|length }} assignee{{ assignees_by_date|lookup:date_str|length|pluralize }}
+                                                        </div>
+                                                    {% endif %}
+                                                </td>
+                                            {% endwith %}
+                                        {% else %}
+                                            <td class="border border-gray-200 p-3 text-center bg-gray-50"></td>
+                                        {% endif %}
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Back to Assignee List -->
+                <div class="mb-4">
+                    <a href="{% url 'index' %}?mode=assignee" class="text-indigo-600 hover:text-indigo-800 font-medium">Back to Assignee List</a>
+                </div>
+            </div>
+
+            <!-- Right Sidebar -->
+            <div id="sidebar" class="lg:w-80 bg-white border border-gray-200 rounded-lg shadow-lg hidden lg:block sticky top-6 max-h-[calc(100vh-2rem)] overflow-y-auto">
+                <div id="sidebar-content" class="p-4">
+                    <h2 id="sidebar-date" class="text-lg font-semibold text-gray-800 mb-4"></h2>
+                    <ul id="assignee-list" class="space-y-2"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript for Sidebar Toggle -->
+    <script>
+        let currentDate = null;
+        const assigneeProfileBaseUrl = "{% url 'assignee_profile' name='placeholder' %}".replace('placeholder', '');
+
+        function toggleSidebar(dateStr) {
+            const sidebar = document.getElementById('sidebar');
+            const sidebarDate = document.getElementById('sidebar-date');
+            const assigneeList = document.getElementById('assignee-list');
+
+            // If clicking the same date, toggle visibility
+            if (currentDate === dateStr) {
+                sidebar.classList.toggle('hidden');
+                if (sidebar.classList.contains('hidden')) {
+                    currentDate = null;
+                }
+                return;
+            }
+
+            // Update sidebar content
+            currentDate = dateStr;
+            sidebar.classList.remove('hidden');
+            sidebarDate.textContent = dateStr;
+
+            // Get assignees for the date
+            const assignees = {{ assignees_by_date|safe }}[dateStr] || [];
+            assigneeList.innerHTML = '';
+            assignees.forEach(assignee => {
+                const li = document.createElement('li');
+                const encodedAssignee = encodeURIComponent(assignee);
+                const cleanBaseUrl = assigneeProfileBaseUrl.replace(/\/$/, '');
+                const href = `${cleanBaseUrl}${encodedAssignee}`;
+                li.innerHTML = `<a href="${href}" class="text-indigo-600 hover:underline text-sm" title="View ${assignee}'s profile">${assignee}</a>`;
+                assigneeList.appendChild(li);
+            });
+
+            // For mobile: Scroll to sidebar
+            if (window.innerWidth < 1024) {
+                sidebar.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        // Ensure sidebar is hidden on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('sidebar').classList.add('hidden');
+        });
+    </script>
+
+    <!-- Mobile Sidebar Styles -->
+    <style>
+        @media (max-width: 1023px) {
+            #sidebar {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                width: 100%;
+                max-height: 50vh;
+                z-index: 50;
+                border-top: 1px solid #e5e7eb;
+                border-left: none;
+                border-right: none;
+                border-bottom: none;
+                border-radius: 0;
+            }
+        }
+    </style>
+{% endblock %}
