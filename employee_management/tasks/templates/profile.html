@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load custom_filters %}
 {% block title %}{{ name }}'s Profile{% endblock %}
 {% block content %}
     <!-- Include Tailwind CSS via CDN -->
@@ -56,9 +57,9 @@
                                         <td class="border border-gray-200 p-3 text-center align-top {% if date_str in tasks_by_date %}bg-teal-100{% else %}bg-white{% endif %} hover:bg-gray-50 transition">
                                             {% if date_str in tasks_by_date %}
                                                 <a href="{% url 'tasks_by_date' name=name date=date_str %}" class="text-indigo-600 font-bold hover:underline">{{ day.day }}</a>
-                                                <div class="text-xs text-gray-500 mt-1">({{ tasks_by_date.date_str|length }} task{{ tasks_by_date.date_str|length|pluralize }})</div>
-                                                <ul class="mt-2 text-xs text-gray-700 list-none space-y-1">
-                                                    {% for task in tasks_by_date.date_str %}
+                                                <div class="text-xs text-gray-500 mt-1">({{ tasks_by_date|lookup:date_str|length }} task{{ tasks_by_date|lookup:date_str|length|pluralize }})</div>
+                                                <!-- <ul class="mt-2 text-xs text-gray-700 list-none space-y-1">
+                                                    {% for task in tasks_by_date|lookup:date_str %}
                                                         <li class="border-l-2 border-indigo-500 pl-2">
                                                             <strong>{{ task.task_name }}</strong> (ID: {{ task.id }})<br>
                                                             Start: {{ task.start_date|date:"Y-m-d" }}<br>
@@ -67,7 +68,7 @@
                                                             Priority: {{ task.priority }}
                                                         </li>
                                                     {% endfor %}
-                                                </ul>
+                                                </ul> -->
                                             {% else %}
                                                 <span class="text-gray-600">{{ day.day }}</span>
                                             {% endif %}
