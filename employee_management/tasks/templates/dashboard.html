@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+    <h1>Task Dashboard</h1>
+    <table style="border-collapse: collapse; width: 100%;">
+        <tr>
+            <th>Assignee</th><th>Completion Rate (%)</th><th>Total Tasks</th>
+        </tr>
+        {% for assignee, data in stats.items %}
+            <tr>
+                <td>{{ assignee }}</td>
+                <td>{{ data['Completion Rate (%)']|round(2) }}</td>
+                <td>{{ data['Total Tasks'] }}</td>
+            </tr>
+        {% endfor %}
+    </table>
+{% endblock %}

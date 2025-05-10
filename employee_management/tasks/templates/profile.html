@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}{{ name }}'s Profile{% endblock %}
+{% block content %}
+    <h1>{{ name }}'s Calendar</h1>
+    <h3>{{ month }}/{{ year }}</h3>
+    
+    <!-- Navigation for previous/next month -->
+    <div>
+        <a href="{% url 'assignee_profile' name=name %}?year={{ prev_year }}&month={{ prev_month }}">Previous Month</a> |
+        <a href="{% url 'assignee_profile' name=name %}?year={{ next_year }}&month={{ next_month }}">Next Month</a>
+    </div>
+
+    <table style="border-collapse: collapse;">
+        <tr>
+            <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
+        </tr>
+        {% for week in calendar %}
+            <tr>
+                {% for day in week %}
+                    {% if day != 0 %}
+                        {% with date_str=year|add:0|stringformat:"04d"|add:"-"|add:month|add:0|stringformat:"02d"|add:"-"|add:day|add:0|stringformat:"02d" %}
+                            <td style="border: 1px solid #ddd; padding: 10px; text-align: center; {% if date_str in tasks_by_date %}background-color: #e0f7fa;{% endif %}">
+                                {% if date_str in tasks_by_date %}
+                                    <a href="{% url 'tasks_by_date' name=name date=date_str %}">{{ day }}</a>
+                                {% else %}
+                                    {{ day }}
+                                {% endif %}
+                            </td>
+                        {% endwith %}
+                    {% else %}
+                        <td style="border: 1px solid #ddd; padding: 10px; text-align: center;"></td>
+                    {% endif %}
+                {% endfor %}
+            </tr>
+        {% endfor %}
+    </table>
+{% endblock %}

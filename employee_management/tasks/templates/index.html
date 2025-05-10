@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}Employee Management{% endblock %}
+{% block content %}
+    <h1>Assignees</h1>
+    <div>
+        {% for assignee in assignees %}
+            <div>
+                <a href="{% url 'assignee_profile' name=assignee.assignee %}">{{ assignee.assignee }}</a>
+            </div>
+        {% endfor %}
+    </div>
+{% endblock %}
