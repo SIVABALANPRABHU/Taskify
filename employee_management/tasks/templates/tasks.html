@@ -10,6 +10,7 @@
                         <th class="p-3 text-sm font-semibold text-gray-700 text-left">Task Name</th>
                         <th class="p-3 text-sm font-semibold text-gray-700 text-left">Start Date</th>
                         <th class="p-3 text-sm font-semibold text-gray-700 text-left">End Date</th>
+                        <th class="p-3 text-sm font-semibold text-gray-700 text-left">Duration (h)</th>
                         <th class="p-3 text-sm font-semibold text-gray-700 text-left">Status</th>
                         <th class="p-3 text-sm font-semibold text-gray-700 text-left">Priority</th>
                         <th class="p-3 text-sm font-semibold text-gray-700 text-left">Action</th>
@@ -21,6 +22,7 @@
                             <td class="p-3 text-sm text-gray-700">{{ task.task_name }}</td>
                             <td class="p-3 text-sm text-gray-700">{{ task.start_date|date:"Y-m-d" }}</td>
                             <td class="p-3 text-sm text-gray-700">{{ task.end_date|date:"Y-m-d" }}</td>
+                            <td class="p-3 text-sm text-gray-700">{{ task.duration }}h</td>
                             <td class="p-3 text-sm text-gray-700">{{ task.status }}</td>
                             <td class="p-3 text-sm text-gray-700">{{ task.priority }}</td>
                             <td class="p-3">
@@ -38,7 +40,7 @@
                     {% endfor %}
                     {% if not tasks %}
                         <tr>
-                            <td colspan="6" class="p-3 text-sm text-gray-500 text-center">No tasks available for {{ name }} on {{ date }}.</td>
+                            <td colspan="7" class="p-3 text-sm text-gray-500 text-center">No tasks available for {{ name }} on {{ date }}.</td>
                         </tr>
                     {% endif %}
                 </tbody>

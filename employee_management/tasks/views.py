@@ -16,42 +16,43 @@ logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
 # Google Sheets API setup
-API_KEY = "AIzaSyAT0_w_CZbwc81tVZxV7ETX8yxPGFE6IDo"  # Your Google Sheets API key
-SHEET_ID = "1nmEyQp0Li6qScZ_kUeeZp-c4jFjx6M2y_J9PhJgyp_I"  # Your sheet ID
+API_KEY = "AIzaSyAT0_w_CZbwc81tVZxV7ETX8yxPGFE6IDo"
+SHEET_ID = "1nmEyQp0Li6qScZ_kUeeZp-c4jFjx6M2y_J9PhJgyp_I"
 service = build("sheets", "v4", developerKey=API_KEY)
-RANGE_NAME = "Sheet1!A1:F"  # Updated for new columns
+RANGE_NAME = "Sheet1!A1:G"
 
 def sync_tasks():
     try:
         result = service.spreadsheets().values().get(spreadsheetId=SHEET_ID, range=RANGE_NAME).execute()
         values = result.get("values", [])
-        if not values or len(values) < 2:  # Check for empty sheet or header-only
+        if not values or len(values) < 2:
             logger.warning("No data found in Google Sheet")
             return
-        headers = values[0]  # ['Assignee', 'Start Date', 'End Date', 'Task Name', 'Status', 'Priority']
-        data = values[1:]    # Data rows
+        headers = values[0]  # ['Task Name', 'Assignee', 'Start Date', 'End Date', 'Duration', 'Status', 'Priority']
+        data = values[1:]
         Task.objects.all().delete()
         for row in data:
-            if len(row) >= 6:  # Ensure row has all columns
+            if len(row) >= 7:
                 try:
-                    start_date = datetime.strptime(row[1], '%Y-%m-%d').date()
-                    end_date = datetime.strptime(row[2], '%Y-%m-%d').date()
-                    if start_date <= end_date:  # Validate dates
+                    start_date = datetime.strptime(row[2], '%Y-%m-%d').date()
+                    end_date = datetime.strptime(row[3], '%Y-%m-%d').date()
+                    duration = float(row[4]) if row[4] else 0.0
+                    if start_date <= end_date and duration >= 0:
                         Task.objects.create(
-                            assignee=row[0],
+                            task_name=row[0],
+                            assignee=row[1],
                             start_date=start_date,
                             end_date=end_date,
-                            task_name=row[3],
-                            status=row[4],
-                            priority=row[5]
+                            duration=duration,
+                            status=row[5],
+                            priority=row[6]
                         )
                     else:
-                        logger.warning(f"Invalid date range in row {row}: start_date > end_date")
-                except ValueError as e:
-                    logger.error(f"Invalid date format in row {row}: {str(e)}")
+                        logger.warning(f"Invalid data in row {row}: start_date > end_date or negative duration")
+                except (ValueError, TypeError) as e:
+                    logger.error(f"Invalid data format in row {row}: {str(e)}")
     except Exception as e:
         logger.error(f"Failed to sync tasks from Google Sheet: {str(e)}")
-        # Continue with existing local data
         pass
 
 def index(request):
@@ -65,7 +66,7 @@ def assignee_profile(request, name):
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
     
-    # Default to current month if no dates provided
+    # Default to current month
     current_date = datetime.now().date()
     year = current_date.year
     month = current_date.month
@@ -74,7 +75,7 @@ def assignee_profile(request, name):
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
             if start_date > end_date:
-                start_date, end_date = end_date, start_date  # Swap if start > end
+                start_date, end_date = end_date, start_date
         except ValueError:
             start_date = datetime(year, month, 1).date()
             end_date = (datetime(year, month, 1) + timedelta(days=31)).replace(day=1).date() - timedelta(days=1)
@@ -82,19 +83,38 @@ def assignee_profile(request, name):
         start_date = datetime(year, month, 1).date()
         end_date = (datetime(year, month, 1) + timedelta(days=31)).replace(day=1).date() - timedelta(days=1)
     
-    # Filter tasks for calendar (within date range)
+    # Filter tasks
     tasks = Task.objects.filter(
         assignee=name,
         start_date__lte=end_date,
         end_date__gte=start_date
     )
     
-    # Generate custom calendar for date range
+    # Calculate daily workload
+    daily_hours = {}
+    for task in tasks:
+        duration_days = (task.end_date - task.start_date).days + 1
+        if duration_days <= 0:
+            continue
+        # Cap daily hours at 12
+        hours_per_day = min(task.duration / duration_days, 12)
+        current_date = task.start_date
+        while current_date <= task.end_date:
+            date_str = current_date.strftime('%Y-%m-%d')
+            if date_str not in daily_hours:
+                daily_hours[date_str] = 0
+            daily_hours[date_str] += hours_per_day
+            current_date += timedelta(days=1)
+    
+    # Round to one decimal place
+    daily_hours_sum = {date_str: round(hours, 1) for date_str, hours in daily_hours.items()}
+    
+    # Generate calendar
     calendar_data = []
     current_date = start_date
     while current_date <= end_date:
-        week = [None] * 7  # Initialize week with None
-        week_start = current_date - timedelta(days=current_date.weekday())  # Start at Monday
+        week = [None] * 7
+        week_start = current_date - timedelta(days=current_date.weekday())
         for i in range(7):
             day_date = week_start + timedelta(days=i)
             if start_date <= day_date <= end_date:
@@ -104,7 +124,7 @@ def assignee_profile(request, name):
         if current_date > end_date:
             break
     
-    # Organize tasks by date (all dates in their start-to-end range)
+    # Organize tasks by date
     tasks_by_date = {}
     for task in tasks:
         current_task_date = max(task.start_date, start_date)
@@ -115,7 +135,7 @@ def assignee_profile(request, name):
             tasks_by_date[date_str].append(task)
             current_task_date += timedelta(days=1)
     
-    # Compute previous and next date range for navigation
+    # Navigation
     range_days = (end_date - start_date).days + 1
     prev_start_date = start_date - timedelta(days=range_days)
     prev_end_date = start_date - timedelta(days=1)
@@ -128,6 +148,7 @@ def assignee_profile(request, name):
         'month': month,
         'calendar': calendar_data,
         'tasks_by_date': tasks_by_date,
+        'daily_hours': daily_hours_sum,
         'start_date': start_date,
         'end_date': end_date,
         'prev_start_date': prev_start_date,
@@ -138,19 +159,15 @@ def assignee_profile(request, name):
 
 def all_tasks(request, name):
     sync_tasks()
-    # Base queryset
     tasks = Task.objects.filter(assignee=name)
-    
-    # Get filter and search parameters
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
     status = request.GET.get('status')
     priority = request.GET.get('priority')
     search_query = request.GET.get('search')
-    sort_by = request.GET.get('sort_by', 'id')  # Default sort by id
-    sort_order = request.GET.get('sort_order', 'asc')  # Default ascending
+    sort_by = request.GET.get('sort_by', 'id')
+    sort_order = request.GET.get('sort_order', 'asc')
     
-    # Preserve filter parameters for redirects
     filter_params = {
         'start_date': start_date_str or '',
         'end_date': end_date_str or '',
@@ -162,7 +179,6 @@ def all_tasks(request, name):
         'page': request.GET.get('page', '1')
     }
     
-    # Handle POST for status updates
     if request.method == 'POST' and 'task_id' in request.POST:
         task_id = request.POST.get('task_id')
         new_status = request.POST.get('status')
@@ -172,13 +188,10 @@ def all_tasks(request, name):
             task.save()
         except Task.DoesNotExist:
             logger.error(f"Task ID {task_id} not found for assignee {name}")
-        # Redirect with preserved filters
         return redirect(f"{request.path}?{urlencode(filter_params)}")
     
-    # Handle POST for export
     if request.method == 'POST' and 'export' in request.POST:
         filtered_tasks = tasks
-        # Apply filters for export
         if start_date_str and end_date_str:
             try:
                 start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
@@ -196,8 +209,7 @@ def all_tasks(request, name):
             filtered_tasks = filtered_tasks.filter(priority=priority)
         if search_query:
             filtered_tasks = filtered_tasks.filter(task_name__icontains=search_query)
-        # Export to CSV
-        df = pd.DataFrame.from_records(filtered_tasks.values('task_name', 'start_date', 'end_date', 'status', 'priority'))
+        df = pd.DataFrame.from_records(filtered_tasks.values('task_name', 'start_date', 'end_date', 'duration', 'status', 'priority'))
         output = io.StringIO()
         df.to_csv(output, index=False)
         output.seek(0)
@@ -208,7 +220,6 @@ def all_tasks(request, name):
         response.write(output.getvalue())
         return response
     
-    # Apply filters for display
     if start_date_str and end_date_str:
         try:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
@@ -230,17 +241,15 @@ def all_tasks(request, name):
     if search_query:
         tasks = tasks.filter(task_name__icontains=search_query)
     
-    # Sorting
-    if sort_by in ['task_name', 'start_date', 'end_date', 'status', 'priority']:
+    if sort_by in ['task_name', 'start_date', 'end_date', 'duration', 'status', 'priority']:
         if sort_order == 'desc':
             tasks = tasks.order_by(f'-{sort_by}')
         else:
             tasks = tasks.order_by(sort_by)
     else:
-        tasks = tasks.order_by('id')  # Default sort
+        tasks = tasks.order_by('id')
     
-    # Pagination
-    paginator = Paginator(tasks, 10)  # 10 tasks per page
+    paginator = Paginator(tasks, 10)
     page = request.GET.get('page')
     try:
         tasks_paginated = paginator.page(page)
@@ -249,7 +258,6 @@ def all_tasks(request, name):
     except EmptyPage:
         tasks_paginated = paginator.page(paginator.num_pages)
     
-    # Get distinct status and priority values for filter dropdowns
     status_choices = Task.objects.filter(assignee=name).values_list('status', flat=True).distinct()
     priority_choices = Task.objects.filter(assignee=name).values_list('priority', flat=True).distinct()
     
@@ -265,7 +273,7 @@ def all_tasks(request, name):
         'search_query': search_query or '',
         'sort_by': sort_by,
         'sort_order': sort_order,
-        'filter_params': urlencode(filter_params)  # For form actions
+        'filter_params': urlencode(filter_params)
     })
 
 def tasks_by_date(request, name, date):
@@ -293,7 +301,6 @@ def dashboard(request):
             'status': lambda x: (x == 'Completed').mean() * 100,
             'task_name': 'count'
         }).rename(columns={'status': 'completion_rate', 'task_name': 'total_tasks'})
-        # Convert to dict with renamed keys
         stats_dict = stats.to_dict('index')
         stats_formatted = {
             assignee: {

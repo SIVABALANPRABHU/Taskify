@@ -4,4 +4,6 @@ register = template.Library()
 
 @register.filter
 def lookup(dictionary, key):
-    return dictionary.get(key, [])
+    if isinstance(key, str):
+        return dictionary.get(key, [])
+    return dictionary.get(key.strftime('%Y-%m-%d'), [])

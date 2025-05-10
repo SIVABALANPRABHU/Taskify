@@ -6,7 +6,6 @@
 
         <!-- Filter Form -->
         <form method="GET" action="{% url 'all_tasks' name=name %}" class="mb-6 flex flex-col sm:flex-row gap-4">
-            <!-- Date Range -->
             <div class="flex-1">
                 <label for="start_date" class="block text-sm font-medium text-gray-700">Start Date:</label>
                 <input type="date" id="start_date" name="start_date" value="{{ start_date|default:'' }}" 
@@ -17,7 +16,6 @@
                 <input type="date" id="end_date" name="end_date" value="{{ end_date|default:'' }}" 
                        class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
             </div>
-            <!-- Status -->
             <div class="flex-1">
                 <label for="status" class="block text-sm font-medium text-gray-700">Status:</label>
                 <select id="status" name="status" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
@@ -27,7 +25,6 @@
                     {% endfor %}
                 </select>
             </div>
-            <!-- Priority -->
             <div class="flex-1">
                 <label for="priority" class="block text-sm font-medium text-gray-700">Priority:</label>
                 <select id="priority" name="priority" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2">
@@ -44,7 +41,6 @@
 
         <!-- Search and Export Form -->
         <form method="GET" action="{% url 'all_tasks' name=name %}" class="mb-6 flex flex-col sm:flex-row gap-4">
-            <!-- Preserve other filters -->
             <input type="hidden" name="start_date" value="{{ start_date|default:'' }}">
             <input type="hidden" name="end_date" value="{{ end_date|default:'' }}">
             <input type="hidden" name="status" value="{{ status|default:'all' }}">
@@ -94,6 +90,12 @@
                             </a>
                         </th>
                         <th class="p-3 text-sm font-semibold text-gray-700 text-left">
+                            <a href="{% url 'all_tasks' name=name %}?sort_by=duration&sort_order={% if sort_by == 'duration' and sort_order == 'asc' %}desc{% else %}asc{% endif %}&start_date={{ start_date|default:'' }}&end_date={{ end_date|default:'' }}&status={{ status|default:'all' }}&priority={{ priority|default:'all' }}&search={{ search_query|default:'' }}" 
+                               class="text-gray-700 hover:text-indigo-600">
+                                Duration (h) {% if sort_by == 'duration' %}{% if sort_order == 'asc' %}↑{% else %}↓{% endif %}{% endif %}
+                            </a>
+                        </th>
+                        <th class="p-3 text-sm font-semibold text-gray-700 text-left">
                             <a href="{% url 'all_tasks' name=name %}?sort_by=status&sort_order={% if sort_by == 'status' and sort_order == 'asc' %}desc{% else %}asc{% endif %}&start_date={{ start_date|default:'' }}&end_date={{ end_date|default:'' }}&status={{ status|default:'all' }}&priority={{ priority|default:'all' }}&search={{ search_query|default:'' }}" 
                                class="text-gray-700 hover:text-indigo-600">
                                 Status {% if sort_by == 'status' %}{% if sort_order == 'asc' %}↑{% else %}↓{% endif %}{% endif %}
@@ -118,6 +120,7 @@
                             </td>
                             <td class="p-3 text-sm text-gray-700">{{ task.start_date|date:"Y-m-d" }}</td>
                             <td class="p-3 text-sm text-gray-700">{{ task.end_date|date:"Y-m-d" }}</td>
+                            <td class="p-3 text-sm text-gray-700">{{ task.duration }}h</td>
                             <td class="p-3 text-sm text-gray-700">
                                 <form method="POST" action="{% url 'all_tasks' name=name %}?{{ filter_params }}" class="inline">
                                     {% csrf_token %}
@@ -138,7 +141,7 @@
                     {% endfor %}
                     {% if not tasks %}
                         <tr>
-                            <td colspan="5" class="p-3 text-sm text-gray-500 text-center">No tasks available for {{ name }}.</td>
+                            <td colspan="6" class="p-3 text-sm text-gray-500 text-center">No tasks available for {{ name }}.</td>
                         </tr>
                     {% endif %}
                 </tbody>
@@ -159,7 +162,7 @@
                 </div>
                 <div>
                     {% if tasks.has_next %}
-                        <a href="{% url 'all_tasks' name=name %}?page={{ tasks.next_page_number }}&start_date={{ start_date|default:'' }}&end_date={{ end_date|default:'' }}&status={{ status|default:'all' }}&priority={{ priority|default:'all' }}&search={{ search_query|default:'all' }}&sort_by={{ sort_by|default:'id' }}&sort_order={{ sort_order|default:'asc' }}" 
+                        <a href="{% url 'all_tasks' name=name %}?page={{ tasks.next_page_number }}&start_date={{ start_date|default:'' }}&end_date={{ end_date|default:'' }}&status={{ status|default:'all' }}&priority={{ priority|default:'all' }}&search={{ search_query|default:'' }}&sort_by={{ sort_by|default:'id' }}&sort_order={{ sort_order|default:'asc' }}" 
                            class="text-indigo-600 hover:text-indigo-800 font-medium">Next</a>
                     {% endif %}
                 </div>
