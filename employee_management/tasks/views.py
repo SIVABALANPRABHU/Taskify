@@ -79,7 +79,7 @@ def assignee_profile(request, name):
         start_date = datetime(year, month, 1).date()
         end_date = (datetime(year, month, 1) + timedelta(days=31)).replace(day=1).date() - timedelta(days=1)
     
-    # Filter tasks where date range overlaps with calendar range
+    # Filter tasks for calendar (within date range)
     tasks = Task.objects.filter(
         assignee=name,
         start_date__lte=end_date,
@@ -132,6 +132,11 @@ def assignee_profile(request, name):
         'next_start_date': next_start_date,
         'next_end_date': next_end_date
     })
+
+def all_tasks(request, name):
+    sync_tasks()
+    tasks = Task.objects.filter(assignee=name)
+    return render(request, 'all_tasks.html', {'name': name, 'tasks': tasks})
 
 def tasks_by_date(request, name, date):
     sync_tasks()
