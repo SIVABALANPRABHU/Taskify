@@ -9,6 +9,7 @@ from .models import Task
 import logging
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db.models import Q
+from urllib.parse import urlencode
 
 # Set up logging
 logging.basicConfig(level=logging.ERROR)
@@ -149,7 +150,65 @@ def all_tasks(request, name):
     sort_by = request.GET.get('sort_by', 'id')  # Default sort by id
     sort_order = request.GET.get('sort_order', 'asc')  # Default ascending
     
-    # Date range filter
+    # Preserve filter parameters for redirects
+    filter_params = {
+        'start_date': start_date_str or '',
+        'end_date': end_date_str or '',
+        'status': status or 'all',
+        'priority': priority or 'all',
+        'search': search_query or '',
+        'sort_by': sort_by,
+        'sort_order': sort_order,
+        'page': request.GET.get('page', '1')
+    }
+    
+    # Handle POST for status updates
+    if request.method == 'POST' and 'task_id' in request.POST:
+        task_id = request.POST.get('task_id')
+        new_status = request.POST.get('status')
+        try:
+            task = Task.objects.get(id=task_id, assignee=name)
+            task.status = new_status
+            task.save()
+        except Task.DoesNotExist:
+            logger.error(f"Task ID {task_id} not found for assignee {name}")
+        # Redirect with preserved filters
+        return redirect(f"{request.path}?{urlencode(filter_params)}")
+    
+    # Handle POST for export
+    if request.method == 'POST' and 'export' in request.POST:
+        filtered_tasks = tasks
+        # Apply filters for export
+        if start_date_str and end_date_str:
+            try:
+                start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+                end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+                if start_date <= end_date:
+                    filtered_tasks = filtered_tasks.filter(start_date__lte=end_date, end_date__gte=start_date)
+                else:
+                    start_date, end_date = end_date, start_date
+                    filtered_tasks = filtered_tasks.filter(start_date__lte=end_date, end_date__gte=start_date)
+            except ValueError:
+                pass
+        if status and status != 'all':
+            filtered_tasks = filtered_tasks.filter(status=status)
+        if priority and priority != 'all':
+            filtered_tasks = filtered_tasks.filter(priority=priority)
+        if search_query:
+            filtered_tasks = filtered_tasks.filter(task_name__icontains=search_query)
+        # Export to CSV
+        df = pd.DataFrame.from_records(filtered_tasks.values('task_name', 'start_date', 'end_date', 'status', 'priority'))
+        output = io.StringIO()
+        df.to_csv(output, index=False)
+        output.seek(0)
+        response = HttpResponse(
+            content_type='text/csv',
+            headers={'Content-Disposition': 'attachment; filename="filtered_tasks.csv"'},
+        )
+        response.write(output.getvalue())
+        return response
+    
+    # Apply filters for display
     if start_date_str and end_date_str:
         try:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
@@ -162,20 +221,17 @@ def all_tasks(request, name):
         except ValueError:
             start_date_str, end_date_str = None, None
     
-    # Status filter
     if status and status != 'all':
         tasks = tasks.filter(status=status)
     
-    # Priority filter
     if priority and priority != 'all':
         tasks = tasks.filter(priority=priority)
     
-    # Search filter
     if search_query:
         tasks = tasks.filter(task_name__icontains=search_query)
     
     # Sorting
-    if sort_by in ['task_name', 'id', 'start_date', 'end_date', 'status', 'priority']:
+    if sort_by in ['task_name', 'start_date', 'end_date', 'status', 'priority']:
         if sort_order == 'desc':
             tasks = tasks.order_by(f'-{sort_by}')
         else:
@@ -209,6 +265,7 @@ def all_tasks(request, name):
         'search_query': search_query or '',
         'sort_by': sort_by,
         'sort_order': sort_order,
+        'filter_params': urlencode(filter_params)  # For form actions
     })
 
 def tasks_by_date(request, name, date):
