@@ -157,10 +157,18 @@ def dashboard(request):
         stats = df.groupby('assignee').agg({
             'status': lambda x: (x == 'Completed').mean() * 100,
             'task_name': 'count'
-        }).rename(columns={'status': 'Completion Rate (%)', 'task_name': 'Total Tasks'})
+        }).rename(columns={'status': 'completion_rate', 'task_name': 'total_tasks'})
+        # Convert to dict with renamed keys
+        stats_dict = stats.to_dict('index')
+        stats_formatted = {
+            assignee: {
+                'completion_rate': data['completion_rate'],
+                'total_tasks': data['total_tasks']
+            } for assignee, data in stats_dict.items()
+        }
     else:
-        stats = pd.DataFrame()
-    return render(request, 'dashboard.html', {'stats': stats.to_dict()})
+        stats_formatted = {}
+    return render(request, 'dashboard.html', {'stats': stats_formatted})
 
 def export(request):
     sync_tasks()

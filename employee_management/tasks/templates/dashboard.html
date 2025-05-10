@@ -1,17 +1,30 @@
 {% extends 'base.html' %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
-    <h1>Task Dashboard</h1>
-    <table style="border-collapse: collapse; width: 100%;">
-        <tr>
-            <th>Assignee</th><th>Completion Rate (%)</th><th>Total Tasks</th>
-        </tr>
-        {% for assignee, data in stats.items %}
-            <tr>
-                <td>{{ assignee }}</td>
-                <td>{{ data['Completion Rate (%)']|round(2) }}</td>
-                <td>{{ data['Total Tasks'] }}</td>
-            </tr>
-        {% endfor %}
-    </table>
+    <h1 class="text-3xl font-bold text-gray-800 mb-6">Task Dashboard</h1>
+    <div class="overflow-x-auto">
+        <table class="w-full bg-white shadow-md rounded-lg">
+            <thead>
+                <tr class="bg-gray-100">
+                    <th class="p-3 text-sm font-semibold text-gray-700 text-left">Assignee</th>
+                    <th class="p-3 text-sm font-semibold text-gray-700 text-left">Completion Rate (%)</th>
+                    <th class="p-3 text-sm font-semibold text-gray-700 text-left">Total Tasks</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for assignee, data in stats.items %}
+                    <tr class="border-b border-gray-200 hover:bg-gray-50 transition">
+                        <td class="p-3 text-sm text-gray-700">{{ assignee }}</td>
+                        <td class="p-3 text-sm text-gray-700">{{ data.completion_rate|floatformat:2 }}</td>
+                        <td class="p-3 text-sm text-gray-700">{{ data.total_tasks }}</td>
+                    </tr>
+                {% endfor %}
+                {% if not stats %}
+                    <tr>
+                        <td colspan="3" class="p-3 text-sm text-gray-500 text-center">No tasks available.</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
 {% endblock %}
