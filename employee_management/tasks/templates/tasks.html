@@ -1,41 +1,52 @@
 {% extends 'base.html' %}
 {% block title %}Tasks for {{ name }} on {{ date }}{% endblock %}
 {% block content %}
-    <h1 class="text-3xl font-bold text-gray-800 mb-6">Tasks for {{ name }} on {{ date }}</h1>
-    <div class="overflow-x-auto">
-        <table class="w-full bg-white shadow-md rounded-lg">
-            <thead>
-                <tr class="bg-gray-100">
-                    <th class="p-3 text-sm font-semibold text-gray-700 text-left">Task Name</th>
-                    <th class="p-3 text-sm font-semibold text-gray-700 text-left">Start Date</th>
-                    <th class="p-3 text-sm font-semibold text-gray-700 text-left">End Date</th>
-                    <th class="p-3 text-sm font-semibold text-gray-700 text-left">Status</th>
-                    <th class="p-3 text-sm font-semibold text-gray-700 text-left">Priority</th>
-                    <th class="p-3 text-sm font-semibold text-gray-700 text-left">Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for task in tasks %}
-                    <tr class="border-b border-gray-200 hover:bg-gray-50 transition">
-                        <td class="p-3 text-sm text-gray-700">{{ task.task_name }}</td>
-                        <td class="p-3 text-sm text-gray-700">{{ task.start_date|date:"Y-m-d" }}</td>
-                        <td class="p-3 text-sm text-gray-700">{{ task.end_date|date:"Y-m-d" }}</td>
-                        <td class="p-3 text-sm text-gray-700">{{ task.status }}</td>
-                        <td class="p-3 text-sm text-gray-700">{{ task.priority }}</td>
-                        <td class="p-3">
-                            <form method="post" action="{% url 'tasks_by_date' name=name date=date %}" class="flex gap-2">
-                                {% csrf_token %}
-                                <input type="hidden" name="task_id" value="{{ task.id }}">
-                                <select name="status" class="border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-1">
-                                    <option value="Active" {% if task.status == 'Active' %}selected{% endif %}>Active</option>
-                                    <option value="Completed" {% if task.status == 'Completed' %}selected{% endif %}>Completed</option>
-                                </select>
-                                <button type="submit" class="bg-indigo-600 text-white px-3 py-1 rounded-md hover:bg-indigo-700 transition text-sm">Update</button>
-                            </form>
-                        </td>
+    <div class="container mx-auto p-4 sm:p-6 max-w-4xl">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6">Tasks for {{ name }} on {{ date }}</h1>
+        <div class="overflow-x-auto">
+            <table class="w-full bg-white shadow-md rounded-lg">
+                <thead>
+                    <tr class="bg-gray-100">
+                        <th class="p-3 text-sm font-semibold text-gray-700 text-left">Task Name</th>
+                        <th class="p-3 text-sm font-semibold text-gray-700 text-left">Start Date</th>
+                        <th class="p-3 text-sm font-semibold text-gray-700 text-left">End Date</th>
+                        <th class="p-3 text-sm font-semibold text-gray-700 text-left">Status</th>
+                        <th class="p-3 text-sm font-semibold text-gray-700 text-left">Priority</th>
+                        <th class="p-3 text-sm font-semibold text-gray-700 text-left">Action</th>
                     </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    {% for task in tasks %}
+                        <tr class="border-b border-gray-200 hover:bg-gray-50 transition">
+                            <td class="p-3 text-sm text-gray-700">{{ task.task_name }}</td>
+                            <td class="p-3 text-sm text-gray-700">{{ task.start_date|date:"Y-m-d" }}</td>
+                            <td class="p-3 text-sm text-gray-700">{{ task.end_date|date:"Y-m-d" }}</td>
+                            <td class="p-3 text-sm text-gray-700">{{ task.status }}</td>
+                            <td class="p-3 text-sm text-gray-700">{{ task.priority }}</td>
+                            <td class="p-3">
+                                <form method="post" action="{% url 'tasks_by_date' name=name date=date %}" class="flex gap-2">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="task_id" value="{{ task.id }}">
+                                    <select name="status" class="border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm p-1">
+                                        <option value="Active" {% if task.status == 'Active' %}selected{% endif %}>Active</option>
+                                        <option value="Completed" {% if task.status == 'Completed' %}selected{% endif %}>Completed</option>
+                                    </select>
+                                    <button type="submit" class="bg-indigo-600 text-white px-3 py-1 rounded-md hover:bg-indigo-700 transition text-sm">Update</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    {% if not tasks %}
+                        <tr>
+                            <td colspan="6" class="p-3 text-sm text-gray-500 text-center">No tasks available for {{ name }} on {{ date }}.</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+        <!-- Back to Calendar -->
+        <div class="mt-4">
+            <a href="{% url 'assignee_profile' name=name %}" class="text-indigo-600 hover:text-indigo-800 font-medium">Back to Calendar</a>
+        </div>
     </div>
 {% endblock %}
