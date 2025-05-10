@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect
 from django.http import HttpResponse
 from googleapiclient.discovery import build
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import calendar
 import io
 from .models import Task
@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
 # Google Sheets API setup
-API_KEY = "AIzaSyAT0_w_CZbwc81tVZxV7ETX8yxPGFE6IDo"  # Replace with your Google Sheets API key
+API_KEY = "AIzaSyAT0_w_CZbwc81tVZxV7ETX8yxPGFE6IDo"  # Your Google Sheets API key
 SHEET_ID = "1nmEyQp0Li6qScZ_kUeeZp-c4jFjx6M2y_J9PhJgyp_I"  # Your sheet ID
 service = build("sheets", "v4", developerKey=API_KEY)
 RANGE_NAME = "Sheet1!A1:E"  # Adjust if your sheet tab name differs
@@ -30,13 +30,16 @@ def sync_tasks():
         Task.objects.all().delete()
         for row in data:
             if len(row) >= 5:  # Ensure row has all columns
-                Task.objects.create(
-                    assignee=row[0],
-                    date=datetime.strptime(row[1], '%Y-%m-%d').date(),
-                    task_name=row[2],
-                    status=row[3],
-                    priority=row[4]
-                )
+                try:
+                    Task.objects.create(
+                        assignee=row[0],
+                        date=datetime.strptime(row[1], '%Y-%m-%d').date(),
+                        task_name=row[2],
+                        status=row[3],
+                        priority=row[4]
+                    )
+                except ValueError as e:
+                    logger.error(f"Invalid date format in row {row}: {str(e)}")
     except Exception as e:
         logger.error(f"Failed to sync tasks from Google Sheet: {str(e)}")
         # Continue with existing local data
@@ -49,11 +52,46 @@ def index(request):
 
 def assignee_profile(request, name):
     sync_tasks()
-    year = int(request.GET.get('year', datetime.now().year))
-    month = int(request.GET.get('month', datetime.now().month))
-    tasks = Task.objects.filter(assignee=name, date__year=year, date__month=month)
+    # Get start_date and end_date from query params
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
     
-    cal = calendar.monthcalendar(year, month)
+    # Default to current month if no dates provided
+    current_date = datetime.now().date()  # Use .date() for consistency
+    year = current_date.year
+    month = current_date.month
+    if start_date_str and end_date_str:
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            if start_date > end_date:
+                start_date, end_date = end_date, start_date  # Swap if start > end
+        except ValueError:
+            start_date = datetime(year, month, 1).date()
+            end_date = (datetime(year, month, 1) + timedelta(days=31)).replace(day=1).date() - timedelta(days=1)
+    else:
+        start_date = datetime(year, month, 1).date()
+        end_date = (datetime(year, month, 1) + timedelta(days=31)).replace(day=1).date() - timedelta(days=1)
+    
+    # Filter tasks by assignee and date range
+    tasks = Task.objects.filter(assignee=name, date__gte=start_date, date__lte=end_date)
+    
+    # Generate custom calendar for date range
+    calendar_data = []
+    current_date = start_date
+    while current_date <= end_date:
+        week = [None] * 7  # Initialize week with None
+        week_start = current_date - timedelta(days=current_date.weekday())  # Start at Monday
+        for i in range(7):
+            day_date = week_start + timedelta(days=i)
+            if start_date <= day_date <= end_date:
+                week[i] = day_date
+        calendar_data.append(week)
+        current_date = week_start + timedelta(days=7)
+        if current_date > end_date:
+            break
+    
+    # Organize tasks by date
     tasks_by_date = {}
     for task in tasks:
         date_str = task.date.strftime('%Y-%m-%d')
@@ -61,20 +99,25 @@ def assignee_profile(request, name):
             tasks_by_date[date_str] = []
         tasks_by_date[date_str].append(task)
     
-    # Compute previous and next month/year for navigation
-    prev_month, prev_year = (month - 1, year) if month > 1 else (12, year - 1)
-    next_month, next_year = (month + 1, year) if month < 12 else (1, year + 1)
+    # Compute previous and next date range for navigation
+    range_days = (end_date - start_date).days + 1
+    prev_start_date = start_date - timedelta(days=range_days)
+    prev_end_date = start_date - timedelta(days=1)
+    next_start_date = end_date + timedelta(days=1)
+    next_end_date = end_date + timedelta(days=range_days)
     
     return render(request, 'profile.html', {
         'name': name,
         'year': year,
         'month': month,
-        'calendar': cal,
+        'calendar': calendar_data,
         'tasks_by_date': tasks_by_date,
-        'prev_year': prev_year,
-        'prev_month': prev_month,
-        'next_year': next_year,
-        'next_month': next_month
+        'start_date': start_date,
+        'end_date': end_date,
+        'prev_start_date': prev_start_date,
+        'prev_end_date': prev_end_date,
+        'next_start_date': next_start_date,
+        'next_end_date': next_end_date
     })
 
 def tasks_by_date(request, name, date):

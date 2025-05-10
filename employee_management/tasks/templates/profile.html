@@ -2,12 +2,21 @@
 {% block title %}{{ name }}'s Profile{% endblock %}
 {% block content %}
     <h1>{{ name }}'s Calendar</h1>
-    <h3>{{ month }}/{{ year }}</h3>
-    
-    <!-- Navigation for previous/next month -->
+    <h3>{{ start_date|date:"Y-m-d" }} to {{ end_date|date:"Y-m-d" }}</h3>
+
+    <!-- Start/End Date Filter Form -->
+    <form method="GET" action="{% url 'assignee_profile' name=name %}">
+        <label for="start_date">Start Date (YYYY-MM-DD):</label>
+        <input type="text" id="start_date" name="start_date" value="{{ start_date|date:'Y-m-d' }}" placeholder="2025-05-01">
+        <label for="end_date">End Date (YYYY-MM-DD):</label>
+        <input type="text" id="end_date" name="end_date" value="{{ end_date|date:'Y-m-d' }}" placeholder="2025-05-31">
+        <button type="submit">Filter</button>
+    </form>
+
+    <!-- Navigation for previous/next date range -->
     <div>
-        <a href="{% url 'assignee_profile' name=name %}?year={{ prev_year }}&month={{ prev_month }}">Previous Month</a> |
-        <a href="{% url 'assignee_profile' name=name %}?year={{ next_year }}&month={{ next_month }}">Next Month</a>
+        <a href="{% url 'assignee_profile' name=name %}?start_date={{ prev_start_date|date:'Y-m-d' }}&end_date={{ prev_end_date|date:'Y-m-d' }}">Previous Period</a> |
+        <a href="{% url 'assignee_profile' name=name %}?start_date={{ next_start_date|date:'Y-m-d' }}&end_date={{ next_end_date|date:'Y-m-d' }}">Next Period</a>
     </div>
 
     <table style="border-collapse: collapse;">
@@ -17,13 +26,20 @@
         {% for week in calendar %}
             <tr>
                 {% for day in week %}
-                    {% if day != 0 %}
-                        {% with date_str=year|add:0|stringformat:"04d"|add:"-"|add:month|add:0|stringformat:"02d"|add:"-"|add:day|add:0|stringformat:"02d" %}
-                            <td style="border: 1px solid #ddd; padding: 10px; text-align: center; {% if date_str in tasks_by_date %}background-color: #e0f7fa;{% endif %}">
+                    {% if day %}
+                        {% with date_str=day|date:"Y-m-d" %}
+                            <td style="border: 1px solid #ddd; padding: 10px; text-align: center; vertical-align: top; {% if date_str in tasks_by_date %}background-color: #e0f7fa;{% endif %}">
                                 {% if date_str in tasks_by_date %}
-                                    <a href="{% url 'tasks_by_date' name=name date=date_str %}">{{ day }}</a>
+                                    <a href="{% url 'tasks_by_date' name=name date=date_str %}">{{ day.day }}</a>
+                                    <br>
+                                    <small>({{ tasks_by_date.date_str|length }} task{{ tasks_by_date.date_str|length|pluralize }})</small>
+                                    <ul style="list-style: none; padding: 0; font-size: 0.8em;">
+                                        {% for task in tasks_by_date.date_str %}
+                                            <li>{{ task.task_name }} (ID: {{ task.id }}, {{ task.status }}, {{ task.priority }})</li>
+                                        {% endfor %}
+                                    </ul>
                                 {% else %}
-                                    {{ day }}
+                                    {{ day.day }}
                                 {% endif %}
                             </td>
                         {% endwith %}
